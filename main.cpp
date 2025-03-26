@@ -14,13 +14,87 @@ path operator""_p(const char* data, std::size_t sz) {
     return path(data, data + sz);
 }
 
-// напишите эту функцию
-bool Preprocess(const path& in_file, const path& out_file, const vector<path>& include_directories);
+bool Preprocess(ostream& out_stream, const path& in_file, const vector<path>& include_directories) {
+    ifstream in_stream(in_file);
+    if (!in_stream.is_open()) {
+        return false;
+    }
+
+    regex include_local(R"/(\s*#\s*include\s*"([^"]*)"\s*)/");
+    regex include_global(R"/(\s*#\s*include\s*<([^>]*)>\s*)/");
+
+    string line;
+    int line_number = 0;
+    while (getline(in_stream, line)) {
+        line_number++;
+        smatch match;
+
+        if (regex_match(line, match, include_local)) {
+            string include_file = match[1].str();
+            path include_path = in_file.parent_path() / include_file;
+
+            ifstream include_stream(include_path);
+            if (!include_stream.is_open()) {
+                bool found = false;
+                for (const auto& dir : include_directories) {
+                    include_path = dir / include_file;
+                    include_stream.open(include_path);
+                    if (include_stream.is_open()) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    cout << "unknown include file " << include_file << " at file " << in_file.string() << " at line " << line_number << endl;
+                    return false;
+                }
+            }
+
+            if (!Preprocess(out_stream, include_path, include_directories)) {
+                return false;
+            }
+        } else if (regex_match(line, match, include_global)) {
+            string include_file = match[1].str();
+            path include_path;
+            bool found = false;
+
+            for (const auto& dir : include_directories) {
+                include_path = dir / include_file;
+                ifstream include_stream(include_path);
+                if (include_stream.is_open()) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                cout << "unknown include file " << include_file << " at file " << in_file.string() << " at line " << line_number << endl;
+                return false;
+            }
+
+            if (!Preprocess(out_stream, include_path, include_directories)) {
+                return false;
+            }
+        } else {
+            out_stream << line << '\n';
+        }
+    }
+
+    return true;
+}
+
+bool Preprocess(const path& in_file, const path& out_file, const vector<path>& include_directories) {
+    ofstream out_stream(out_file);
+    if (!out_stream.is_open()) {
+        return false;
+    }
+
+    return Preprocess(out_stream, in_file, include_directories);
+}
 
 string GetFileContents(string file) {
     ifstream stream(file);
-
-    // конструируем string по двум итераторам
     return {(istreambuf_iterator<char>(stream)), istreambuf_iterator<char>()};
 }
 
@@ -71,7 +145,7 @@ void Test() {
     }
 
     assert((!Preprocess("sources"_p / "a.cpp"_p, "sources"_p / "a.in"_p,
-                                  {"sources"_p / "include1"_p,"sources"_p / "include2"_p})));
+                        {"sources"_p / "include1"_p,"sources"_p / "include2"_p})));
 
     ostringstream test_out;
     test_out << "// this comment before include\n"
