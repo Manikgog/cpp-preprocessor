@@ -14,7 +14,7 @@ path operator""_p(const char* data, std::size_t sz) {
     return path(data, data + sz);
 }
 
-bool Preprocess(ostream& out_stream, const path& in_file, const vector<path>& include_directories) {
+bool PreprocessFromFileToOutStream(ostream& out_stream, const path& in_file, const vector<path>& include_directories) {
     ifstream in_stream(in_file);
     if (!in_stream.is_open()) {
         return false;
@@ -51,7 +51,7 @@ bool Preprocess(ostream& out_stream, const path& in_file, const vector<path>& in
                 }
             }
 
-            if (!Preprocess(out_stream, include_path, include_directories)) {
+            if (!PreprocessFromFileToOutStream(out_stream, include_path, include_directories)) {
                 return false;
             }
         } else if (regex_match(line, match, include_global)) {
@@ -73,7 +73,7 @@ bool Preprocess(ostream& out_stream, const path& in_file, const vector<path>& in
                 return false;
             }
 
-            if (!Preprocess(out_stream, include_path, include_directories)) {
+            if (!PreprocessFromFileToOutStream(out_stream, include_path, include_directories)) {
                 return false;
             }
         } else {
@@ -90,7 +90,7 @@ bool Preprocess(const path& in_file, const path& out_file, const vector<path>& i
         return false;
     }
 
-    return Preprocess(out_stream, in_file, include_directories);
+    return PreprocessFromFileToOutStream(out_stream, in_file, include_directories);
 }
 
 string GetFileContents(string file) {
